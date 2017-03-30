@@ -31,4 +31,4 @@ class External_World(object):
         self.x =        theano.shared(np.asarray(x_values, dtype=theano.config.floatX), borrow=True)
         self.y = T.cast(theano.shared(np.asarray(y_values, dtype=theano.config.floatX), borrow=True), 'int32')
 
-        self.size_dataset = 70000#len(x_values)
+        self.size_dataset = len(x_values)

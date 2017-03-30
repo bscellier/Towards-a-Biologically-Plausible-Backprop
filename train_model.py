@@ -37,16 +37,17 @@ def train_net(net):
 
         # CUMULATIVE SUM OF TRAINING ENERGY, TRAINING COST AND TRAINING ERROR
         measures_sum = [0.,0.,0.]
+        gW = [0.] * len(alphas)
 
         for index in xrange(n_batches_train):
 
             # CHANGE THE INDEX OF THE MINI BATCH (= CLAMP X AND INITIALIZE THE HIDDEN AND OUTPUT LAYERS WITH THE PERSISTENT PARTICLES)
             net.change_mini_batch_index(index)
 
-            # NEGATIVE PHASE
-            net.negative_phase(n_it_neg, epsilon)
+            # FREE PHASE
+            net.free_phase(n_it_neg, epsilon)
 
-            # MEASURE THE ENERGY, COST AND ERROR AT THE END OF THE NEGATIVE PHASE RELAXATION
+            # MEASURE THE ENERGY, COST AND ERROR AT THE END OF THE FREE PHASE RELAXATION
             measures = net.measure()
             measures_sum = [measure_sum + measure for measure_sum,measure in zip(measures_sum,measures)]
             measures_avg = [measure_sum / (index+1) for measure_sum in measures_sum]
@@ -54,10 +55,16 @@ def train_net(net):
             stdout.write("\r%2i-train-%5i E=%.1f C=%.5f error=%.3f%%" % (epoch, (index+1)*batch_size, measures_avg[0], measures_avg[1], measures_avg[2]))
             stdout.flush()
 
-            # POSITIVE PHASE
-            net.positive_phase(n_it_pos, epsilon, beta, *alphas)
+            # WEAKLY CLAMPED PHASE
+            sign = 2*np.random.randint(0,2)-1 # random sign +1 or -1
+            beta = np.float32(sign*beta) # choose the sign of beta at random
+
+            Delta_logW = net.weakly_clamped_phase(n_it_pos, epsilon, beta, *alphas)
+            gW = [gW1 + Delta_logW1 for gW1,Delta_logW1 in zip(gW,Delta_logW)]
 
         stdout.write("\n")
+        dlogW = [100. * gW1 / n_batches_train for gW1 in gW]
+        print "   "+" ".join(["dlogW%i=%.3f%%" % (k+1,dlogW1) for k,dlogW1 in enumerate(dlogW)])
 
         net.training_curves["training error"].append(measures_avg[-1])
 
@@ -71,10 +78,10 @@ def train_net(net):
             # CHANGE THE INDEX OF THE MINI BATCH (= CLAMP X AND INITIALIZE THE HIDDEN AND OUTPUT LAYERS WITH THE PERSISTENT PARTICLES)
             net.change_mini_batch_index(n_batches_train+index)
 
-            # NEGATIVE PHASE
-            net.negative_phase(n_it_neg, epsilon)
+            # FREE PHASE
+            net.free_phase(n_it_neg, epsilon)
             
-            # MEASURE THE ENERGY, COST AND ERROR AT THE END OF THE NEGATIVE PHASE RELAXATION
+            # MEASURE THE ENERGY, COST AND ERROR AT THE END OF THE FREE PHASE RELAXATION
             measures = net.measure()
             measures_sum = [measure_sum + measure for measure_sum,measure in zip(measures_sum,measures)]
             measures_avg = [measure_sum / (index+1) for measure_sum in measures_sum]

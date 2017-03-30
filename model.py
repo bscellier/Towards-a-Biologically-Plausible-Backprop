@@ -5,6 +5,10 @@ import os
 import theano
 import theano.tensor as T
 
+def rho(s):
+    return T.clip(s,0.,1.)
+    #return T.nnet.sigmoid(4.*s-2.)
+
 class Network(object):
 
     def __init__(self, name, hyperparameters=dict()):
@@ -36,8 +40,8 @@ class Network(object):
         # BUILD THEANO FUNCTIONS
         self.change_mini_batch_index = self.__build_change_mini_batch_index()
         self.measure                 = self.__build_measure()
-        self.negative_phase          = self.__build_negative_phase()
-        self.positive_phase          = self.__build_positive_phase()
+        self.free_phase              = self.__build_free_phase()
+        self.weakly_clamped_phase    = self.__build_weakly_clamped_phase()
 
     def save_params(self):
         f = file(self.path, 'wb')
@@ -48,6 +52,8 @@ class Network(object):
         f.close()
 
     def __load_params(self, hyperparameters):
+
+        hyper = hyperparameters
 
         # Glorot/Bengio weight initialization
         def initialize_layer(n_in, n_out):
@@ -66,6 +72,8 @@ class Network(object):
             f = file(self.path, 'rb')
             biases_values, weights_values, hyperparameters, training_curves = cPickle.load(f)
             f.close()
+            for k,v in hyper.iteritems():
+                hyperparameters[k]=v
         else:
             layer_sizes = [28*28] + hyperparameters["hidden_sizes"] + [10]
             biases_values  = [np.zeros((size,), dtype=theano.config.floatX) for size in layer_sizes]
@@ -94,17 +102,17 @@ class Network(object):
 
     # ENERGY FUNCTION, DENOTED BY E
     def __energy(self, layers):
-        squared_norm    =   sum( [T.batched_dot(layer,layer)       for layer      in layers] ) / 2.
-        linear_terms    = - sum( [T.dot(layer,b)                   for layer,b    in zip(layers,self.biases)] )
-        quadratic_terms = - sum( [T.batched_dot(T.dot(pre,W),post) for pre,W,post in zip(layers[:-1],self.weights,layers[1:])] )
+        squared_norm    =   sum( [T.batched_dot(rho(layer),rho(layer))       for layer      in layers] ) / 2.
+        linear_terms    = - sum( [T.dot(rho(layer),b)                        for layer,b    in zip(layers,self.biases)] )
+        quadratic_terms = - sum( [T.batched_dot(T.dot(rho(pre),W),rho(post)) for pre,W,post in zip(layers[:-1],self.weights,layers[1:])] )
         return squared_norm + linear_terms + quadratic_terms
 
     # COST FUNCTION, DENOTED BY C
     def __cost(self, layers):
         return ((layers[-1] - self.y_data_one_hot) ** 2).sum(axis=1)
 
-    # EXTENDED ENERGY FUNCTION (THAT INCLUDES EXTERNAL INFLUENCES), DENOTED BY F
-    def __extended_energy(self, layers, beta):
+    # TOTAL ENERGY FUNCTION, DENOTED BY F
+    def __total_energy(self, layers, beta):
         return self.__energy(layers) + beta * self.__cost(layers)
 
     # MEASURES THE ENERGY, THE COST AND THE MISCLASSIFICATION ERROR FOR THE CURRENT STATE OF THE NETWORK
@@ -122,14 +130,14 @@ class Network(object):
 
         return measure
 
-    def __build_negative_phase(self):
+    def __build_free_phase(self):
 
         n_iterations = T.iscalar('n_iterations')
         epsilon  = T.fscalar('epsilon')
 
         def step(*layers):
             E_sum = T.sum(self.__energy(layers))
-            layers_dot = T.grad(-E_sum, list(layers)) # temporal derivative of the state (negative trajectory)
+            layers_dot = T.grad(-E_sum, list(layers)) # temporal derivative of the state (free trajectory)
             layers_new = [layers[0]]+[T.clip(layer+epsilon*dot,0.,1.) for layer,dot in zip(layers,layers_dot)][1:]
             return layers_new
 
@@ -143,15 +151,15 @@ class Network(object):
         for particles,layer,layer_end in zip(self.persistent_particles,self.layers[1:],layers_end[1:]):
             updates[particles] = T.set_subtensor(layer,layer_end)
 
-        negative_phase = theano.function(
+        free_phase = theano.function(
             inputs=[n_iterations,epsilon],
             outputs=[],
             updates=updates
         )
 
-        return negative_phase
+        return free_phase
 
-    def __build_positive_phase(self):
+    def __build_weakly_clamped_phase(self):
 
         n_iterations = T.iscalar('n_iterations')
         epsilon  = T.fscalar('epsilon')
@@ -159,8 +167,8 @@ class Network(object):
         alphas = [T.fscalar("alpha_W"+str(r+1)) for r in range(len(self.weights))]
 
         def step(*layers):
-            F_sum = T.sum(self.__extended_energy(layers, beta))
-            layers_dot = T.grad(-F_sum, list(layers)) # temporal derivative of the state (positive trajectory)
+            F_sum = T.sum(self.__total_energy(layers, beta))
+            layers_dot = T.grad(-F_sum, list(layers)) # temporal derivative of the state (weakly clamped trajectory)
             layers_new = [layers[0]]+[T.clip(layer+epsilon*dot,0.,1.) for layer,dot in zip(layers,layers_dot)][1:]
             return layers_new
 
@@ -169,20 +177,27 @@ class Network(object):
             outputs_info=self.layers,
             n_steps=n_iterations
         )
-        layers_new = [layer[-1] for layer in layers]
+        layers_weakly_clamped = [layer[-1] for layer in layers]
 
-        biases_new  = [b + alpha * T.mean((layer_new-layer) / beta, axis=0) for b,alpha,layer_new,layer in zip(self.biases[1:],alphas,layers_new[1:],self.layers[1:])]
-        weights_new = [W + alpha * (T.dot(layer1_new.T, layer2_new) - T.dot(layer1.T, layer2)) / (beta * T.cast(self.layers[0].shape[0], dtype=theano.config.floatX)) for W, alpha, layer1_new, layer2_new, layer1, layer2 in zip(self.weights, alphas, layers_new[:-1], layers_new[1:], self.layers[:-1], self.layers[1:])]
+        E_mean_free           = T.mean(self.__energy(self.layers))
+        E_mean_weakly_clamped = T.mean(self.__energy(layers_weakly_clamped))
+        biases_dot            = T.grad( (E_mean_weakly_clamped-E_mean_free) / beta, self.biases,  consider_constant=layers_weakly_clamped)
+        weights_dot           = T.grad( (E_mean_weakly_clamped-E_mean_free) / beta, self.weights, consider_constant=layers_weakly_clamped)
+
+        biases_new  = [b - alpha * dot for b,alpha,dot in zip(self.biases[1:],alphas,biases_dot[1:])]
+        weights_new = [W - alpha * dot for W,alpha,dot in zip(self.weights,   alphas,weights_dot)]
+        
+        Delta_log = [T.sqrt( ((W_new - W) ** 2).mean() ) / T.sqrt( (W ** 2).mean() ) for W,W_new in zip(self.weights,weights_new)]
         
         for bias, bias_new in zip(self.biases[1:],biases_new):
             updates[bias]=bias_new
         for weight, weight_new in zip(self.weights,weights_new):
             updates[weight]=weight_new
 
-        positive_phase = theano.function(
+        weakly_clamped_phase = theano.function(
             inputs=[n_iterations, epsilon, beta]+alphas,
-            outputs=[],
+            outputs=Delta_log,
             updates=updates
         )
 
-        return positive_phase
+        return weakly_clamped_phase
