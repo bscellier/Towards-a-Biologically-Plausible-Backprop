@@ -15,7 +15,7 @@ cd Towards-a-Biologically-Plausible-Backprop
 ``` bash
 THEANO_FLAGS="floatX=float32, gcc.cxxflags='-march=core2'" python train_model.py
 ```
-* Once the model is tranied, use the GUI by running the python script:
+* Once the model is trained, use the GUI by running the python script:
 ``` bash
 THEANO_FLAGS="floatX=float32, gcc.cxxflags='-march=core2'" python gui.py net1
 ```
