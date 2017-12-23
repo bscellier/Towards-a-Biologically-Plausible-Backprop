@@ -1,9 +1,11 @@
-## Equilibrium Propagation: Bridging the Gap Between Backpropagation and Energy-Based Models
-For a description of the model, check the [paper](https://arxiv.org/abs/1602.05179).
+# Equilibrium Propagation
+Link to the papers:
+
+* [Equilibrium Propagation: Bridging the Gap Between Energy-Based Models and Backpropagation](https://www.frontiersin.org/articles/10.3389/fncom.2017.00024/full)
+
+* [Equivalence of Equilibrium Propagation and Recurrent Backpropagation](https://arxiv.org/abs/1711.08416)
 
 The code is written in [Theano](https://github.com/Theano/Theano), the Deep Learning framework developed by [MILA](https://mila.umontreal.ca/en/).
-
-Note that an old version of the paper was "Towards a Biologically Plausible Backprop".
 
 ## Getting started
 * Download the code from GitHub:
