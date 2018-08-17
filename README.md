@@ -1,11 +1,13 @@
 # Equilibrium Propagation
-Link to the papers:
+Links to the papers:
 
 * [Equilibrium Propagation: Bridging the Gap Between Energy-Based Models and Backpropagation](https://www.frontiersin.org/articles/10.3389/fncom.2017.00024/full)
 
 * [Equivalence of Equilibrium Propagation and Recurrent Backpropagation](https://arxiv.org/abs/1711.08416)
 
-The code is written in [Theano](https://github.com/Theano/Theano), the Deep Learning framework developed by [MILA](https://mila.umontreal.ca/en/).
+* [Generalization of Equilibrium Propagation to Vector Field Dynamics](https://arxiv.org/abs/1808.04873)
+
+The code is written in [Theano](https://github.com/Theano/Theano), the Deep Learning framework which was developed by [MILA](https://mila.umontreal.ca/en/).
 
 ## Getting started
 * Download the code from GitHub:
