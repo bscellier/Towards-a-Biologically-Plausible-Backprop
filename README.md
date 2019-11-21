@@ -10,7 +10,7 @@ These features make EP not only a model of interest for neuroscience, but also f
 
 Our recent NeurIPS (2019) paper:
 * [Updates of Equilibrium Prop Match Gradients of Backprop Through Time in an RNN with Static Input](https://papers.nips.cc/paper/8930-updates-of-equilibrium-prop-match-gradients-of-backprop-through-time-in-an-rnn-with-static-input.pdf)
-* [3-minute summary video](https://www.youtube.com/watch?v=Xb5sM0NRy_0&t=117s)
+* [3-minute summary video](https://www.youtube.com/watch?v=Xb5sM0NRy_0)
 
 This paper introduces a discrete-time formulation of EP with simplified notations, closer to those used in the deep learning litterature.
 It also establishes an equivalence of EP and BPTT in an RNN with static input and it introduces a convolutional RNN model trainable with EP.
