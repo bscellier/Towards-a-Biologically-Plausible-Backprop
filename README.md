@@ -27,7 +27,7 @@ Links to other papers:
 
 The code of this repo is written in [Theano](https://github.com/Theano/Theano), the Deep Learning framework which was developed by [MILA](https://mila.umontreal.ca/en/).
 
-[Click here](https://github.com/ernoult/updatesEPgradientsBPTT) for a more recent Keras implementation.
+Click [here](https://github.com/ernoult/updatesEPgradientsBPTT) and [here](https://github.com/smonsays/equilibrium-propagation) for more recent PyTorch implementations.
 
 ## Getting started
 * Download the code from GitHub:
